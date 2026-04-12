@@ -1,0 +1,33 @@
+# Radar data
+arm-pyart>=1.17.0
+nexradaws>=2.0.0
+
+# ML
+torch>=2.1.0
+keras>=3.0.0
+huggingface_hub>=0.20.0
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Data handling
+xarray>=2023.6.0
+netCDF4>=1.6.4
+
+# Geo
+pyproj>=3.6.0
+cartopy>=0.22.0
+
+# Polling
+apscheduler>=3.10.0
+
+# GUI
+streamlit>=1.28.0
+matplotlib>=3.8.0
+pandas>=2.1.0
+
+# Utilities
+python-dotenv>=1.0.0
+boto3>=1.34.0
+
+# TorNet reference (install separately):
+# git clone https://github.com/mit-ll/tornet && pip install -e ./tornet
