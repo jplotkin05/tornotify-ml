@@ -12,6 +12,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from tornotify.file_lock import locked_file
 from tornotify.geo import radar_to_latlon
 
 _FIELDNAMES = [
@@ -85,12 +86,13 @@ def log_detection_event(filepath: str, tracking_update: Any) -> None:
     }
 
     with _write_lock:
-        write_header = not path.exists() or path.stat().st_size == 0
-        with open(path, "a", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=_FIELDNAMES)
-            if write_header:
-                writer.writeheader()
-            writer.writerow(row)
+        with locked_file(path):
+            write_header = not path.exists() or path.stat().st_size == 0
+            with open(path, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=_FIELDNAMES)
+                if write_header:
+                    writer.writeheader()
+                writer.writerow(row)
 
 
 def _round_optional(value: Any, ndigits: int) -> float | None:

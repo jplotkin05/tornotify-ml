@@ -61,6 +61,30 @@ SCANNER_NO_SCAN_POLL_SECONDS = int(os.getenv("TORNOTIFY_SCANNER_NO_SCAN_POLL_SEC
 SCANNER_ERROR_BACKOFF_SECONDS = int(os.getenv("TORNOTIFY_SCANNER_ERROR_BACKOFF_SECONDS", "300"))
 SCANNER_MAX_ERROR_BACKOFF_SECONDS = int(os.getenv("TORNOTIFY_SCANNER_MAX_ERROR_BACKOFF_SECONDS", "1800"))
 
+# Distributed scanner state. Redis is used only for queue/state coordination;
+# raw cell scores and confirmed tracks continue to be written to CSV files.
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+DISTRIBUTED_REDIS_PREFIX = os.getenv("TORNOTIFY_REDIS_PREFIX", "tornotify")
+DISTRIBUTED_QUEUE_KEY = os.getenv(
+    "TORNOTIFY_DISTRIBUTED_QUEUE_KEY",
+    f"{DISTRIBUTED_REDIS_PREFIX}:scan_queue",
+)
+DISTRIBUTED_DEFAULT_WORKERS = int(
+    os.getenv("TORNOTIFY_DISTRIBUTED_WORKERS", str(max(1, min(os.cpu_count() or 1, 8))))
+)
+DISTRIBUTED_SITE_LOCK_TTL_SECONDS = int(
+    os.getenv("TORNOTIFY_DISTRIBUTED_SITE_LOCK_TTL_SECONDS", "900")
+)
+DISTRIBUTED_PROCESSED_TTL_SECONDS = int(
+    os.getenv("TORNOTIFY_DISTRIBUTED_PROCESSED_TTL_SECONDS", "259200")
+)
+DISTRIBUTED_TRACK_TTL_SECONDS = int(
+    os.getenv("TORNOTIFY_DISTRIBUTED_TRACK_TTL_SECONDS", "21600")
+)
+DISTRIBUTED_WORKER_SLEEP_SECONDS = float(
+    os.getenv("TORNOTIFY_DISTRIBUTED_WORKER_SLEEP_SECONDS", "2.0")
+)
+
 # ---------------------------------------------------------------------------
 # Storm cell identification
 # ---------------------------------------------------------------------------

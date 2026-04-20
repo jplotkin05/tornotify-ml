@@ -1,29 +1,111 @@
 # tornotify-ml
 
-## Inspiration
-Back on September 24, 2001, a devastating tornado crossed over areas of North Campus. 2 students killed, 57 injured, 300 cars destroyed, damaged dorms and completely shredded trees. Since this incident, the University implemented tornado sirens to enhance early warning communications in the hopes to save more lives. However, tornado detection has been a significantly challenging task for forecasters at weather offices. 
+Radar ML scanner for live NEXRAD Level-II tornado-signature scoring with TorNet.
 
-Several years ago, the MIT Lincoln Laboratory published a benchmark dataset, allowing researchers utilize machine learning models to detect tornadic signatures in weather radar data.  We wanted to utilize this model to build an architecture that detects tornados with realtime weather radar data with the goal of finding earlier detection to give people more time to take shelter.
+## Inspiration
+Back on September 24, 2001, a devastating tornado crossed over areas of North Campus. Two students were killed, 57 were injured, 300 cars were destroyed, and dorms and trees were damaged. Since then, the University has used tornado sirens to improve early warning communications. Tornado detection remains difficult for forecasters at weather offices.
+
+MIT Lincoln Laboratory published a benchmark dataset for detecting tornadic signatures in weather radar data. We use that model foundation with realtime radar data to pursue earlier tornado detection and give people more time to take shelter.
 
 ## What it does
-The model ingests realtime and archived Next Generation Weather Radar data (NEXRAD) served on an AWS S3 Bucket. The latest frame from each radar site first has a filter that parses for high reflectivity, indicating present storm cells. If cells are present, the data is cropped and the cell gets extrapolated and passed into the next phase for tornado classification. After the cell is processed by the model, areas are plotted on a map with their respective probabilities of being a tornado. 
+The model ingests realtime and archived Next Generation Weather Radar data (NEXRAD) served from AWS S3. The latest frame from each radar site is filtered for high reflectivity to find storm cells. Present cells are cropped, extrapolated, and passed into tornado classification. Processed cells are plotted on a map with tornado probabilities.
 
-In order to ensure predictions are not anomalies, the program will aggregate future radar time steps to ensure consistency. If a tornado is likely, its path will be plotted on the map.
+To reduce anomalous predictions, the program aggregates future radar time steps for consistency. If a tornado remains likely, its path is plotted on the map.
 
-The user can also observe past weather events in the dashboard dating back to 2013 for all 50 states.
+The dashboard can also review past weather events dating back to 2013.
 
 ## How we built it
-All of the system is written in Python. We utilized hugging face to import MIT model and connect it to our live data ingestion function that we wrote using the nexradaws library. All radar images with state and county borders were generated utilizing pyart and cartopy. The dashboard built to showcase the system in action was created with the streamlit library.
+The system is written in Python. It loads the MIT model from Hugging Face and connects it to live data ingestion built with `nexradaws`. Radar images with state and county borders are generated with Py-ART and Cartopy. The dashboard is built with Streamlit.
 
 ## Challenges we ran into
-Single frames would sometimes return false positive indications for tornado signatures and we had to come up with a strategy to ensure only persistent detections were flagged. This required validation over multiple time steps in radar data. If the next time step showed a similar probability for a tornado in the same region that followed a computed storm track movement, the system would not consider the tornado event an anomaly and elevate detection to the user.
-
+Single frames can return false positive tornado signatures, so persistent detections must be validated over multiple radar time steps. If the next time step shows a similar tornado probability in the same region following computed storm-track movement, the system elevates the detection instead of treating it as an anomaly.
 
 ## Accomplishments that we're proud of
-Training data spanned between 2013 and 2022. We wanted to see if the system would accurately determine tornado events beyond the training set. A key accomplishment was when we passed archived radar data from the 2023 Rolling Fork Tornado in Mississippi and had a accurate classification and storm path. We then tried this on other recent tornados outside of the dataset and saw similar success. 
+Training data spans 2013 through 2022. We wanted to test whether the system could identify tornado events beyond the training set. A key result was passing archived radar data from the 2023 Rolling Fork tornado in Mississippi and getting an accurate classification and storm path. Other recent tornadoes outside the dataset showed similar results.
 
 ## What we learned
-Before undertaking this project, we did not know much about interpreting radar data and atmospheric science as a whole. Understanding the six components of modern radar including reflectivity, radial velocity, spectrum width, differential reflectivity, correlation coefficient, and specific differential phase helped us to understand what the model was processing and how to interpret performance on different severe weather examples.
+We learned how to interpret radar data and the six components of modern radar: reflectivity, radial velocity, spectrum width, differential reflectivity, correlation coefficient, and specific differential phase. That helped us understand what the model processes and how to interpret performance across severe weather examples.
 
 ## What's next for Tornotify - Storm Early Warning Systems
-We want to go beyond standard mobile phone warning systems and integrate our detection system into smart home devices. This would include stereo systems playing warnings, lights changing colors, and other smart features that could warn people away from their phones as well as people with sensory disabilities. 
+We want to go beyond standard mobile phone warning systems and integrate detection into smart home devices, including stereo warnings, lights changing colors, and other features that can warn people away from their phones and people with sensory disabilities.
+
+## Scanner Modes
+
+### Local adaptive scanner
+
+Runs in one Python process with a thread pool:
+
+```bash
+python tornotify/scripts/run_pipeline.py --all-sites --loop --workers 4 --no-images
+```
+
+This is simplest for local testing, but processed scan state and temporal tracks live in that one process.
+
+### Redis distributed scanner
+
+Runs multiple worker processes against a Redis-backed queue. Redis stores:
+
+- due-time priority queue for radar sites
+- per-site processing locks
+- processed scan keys
+- temporal track state
+
+CSV remains the output format:
+
+- `tornotify/data/results.csv` for every scored storm cell
+- `tornotify/data/detections.csv` for temporally confirmed tracks
+
+Install the Redis client dependency with the normal requirements:
+
+```bash
+pip install -r tornotify/requirements.txt
+```
+
+Start Redis separately, for example:
+
+```bash
+redis-server
+```
+
+One-machine launcher:
+
+```bash
+python tornotify/scripts/run_distributed.py --all-sites --workers 12 --requeue-now
+```
+
+Separate scheduler and workers:
+
+```bash
+python tornotify/scripts/distributed_scheduler.py --all-sites --loop
+python tornotify/scripts/distributed_worker.py --workers 12
+```
+
+Workers default to no radar PNG output for throughput. Add `--image-dir tornotify/data/radar_images` when image artifacts are needed.
+
+## Useful Settings
+
+```bash
+export REDIS_URL=redis://localhost:6379/0
+export TORNOTIFY_DISTRIBUTED_WORKERS=12
+export TORNOTIFY_REDIS_PREFIX=tornotify
+export TORNOTIFY_DISTRIBUTED_SITE_LOCK_TTL_SECONDS=900
+export TORNOTIFY_DISTRIBUTED_PROCESSED_TTL_SECONDS=259200
+export TORNOTIFY_DISTRIBUTED_TRACK_TTL_SECONDS=21600
+```
+
+Polling priority still uses the scanner timing settings:
+
+```bash
+export TORNOTIFY_SCANNER_HOT_POLL_SECONDS=60
+export TORNOTIFY_SCANNER_ACTIVE_POLL_SECONDS=120
+export TORNOTIFY_SCANNER_QUIET_POLL_SECONDS=300
+export TORNOTIFY_SCANNER_NO_SCAN_POLL_SECONDS=600
+```
+
+## Notes
+
+- Use `--all-sites` for the full non-TDWR radar catalog.
+- Use `--sites KMAF KTWX KILX` for a targeted scan group.
+- Multiple worker hosts can share the same Redis queue.
+- Multiple local worker processes append to the same CSV files using sidecar file locks.
+- On a 24-core server, start around `--workers 8` to `--workers 12`, then raise only if CPU, memory, model load time, and S3 download rate stay healthy.

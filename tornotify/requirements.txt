@@ -19,6 +19,7 @@ cartopy>=0.22.0
 
 # Polling
 apscheduler>=3.10.0
+redis>=5.0.0
 
 # GUI
 streamlit>=1.28.0

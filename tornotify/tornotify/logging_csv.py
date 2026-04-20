@@ -10,6 +10,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+from tornotify.file_lock import locked_file
 from tornotify.geo import radar_to_latlon
 from tornotify.preprocess.cells import StormCell
 
@@ -59,9 +60,10 @@ def log_result(
     }
 
     with _write_lock:
-        write_header = not path.exists() or path.stat().st_size == 0
-        with open(path, "a", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=_FIELDNAMES)
-            if write_header:
-                writer.writeheader()
-            writer.writerow(row)
+        with locked_file(path):
+            write_header = not path.exists() or path.stat().st_size == 0
+            with open(path, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=_FIELDNAMES)
+                if write_header:
+                    writer.writeheader()
+                writer.writerow(row)
